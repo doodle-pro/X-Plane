@@ -599,3 +599,153 @@ class Pilot {
             var startPosZ = -4;
             var startPosX = -4;
             h.position.set(startPosX + row * 4, 0, startPosZ + col * 4);
+            this.hairsTop.add(h);
+        }
+        hairs.add(this.hairsTop);
+
+        // create the hairs at the side of the face
+        var hairSideGeom = new THREE.BoxGeometry(12, 4, 2);
+        hairSideGeom.applyMatrix(new THREE.Matrix4().makeTranslation(-6, 0, 0));
+        var hairSideR = new THREE.Mesh(hairSideGeom, hairMat);
+        var hairSideL = hairSideR.clone();
+        hairSideR.position.set(8, -2, 6);
+        hairSideL.position.set(8, -2, -6);
+        hairs.add(hairSideR);
+        hairs.add(hairSideL);
+
+        // create the hairs at the back of the head
+        var hairBackGeom = new THREE.BoxGeometry(2, 8, 10);
+        var hairBack = new THREE.Mesh(hairBackGeom, hairMat);
+        hairBack.position.set(-1, -4, 0);
+        hairs.add(hairBack);
+        hairs.position.set(-5, 5, 0);
+
+        this.mesh.add(hairs);
+
+        var glassGeom = new THREE.BoxGeometry(5, 5, 5);
+        var glassMat = new THREE.MeshLambertMaterial({ color: Colors.brown });
+        var glassR = new THREE.Mesh(glassGeom, glassMat);
+        glassR.position.set(6, 0, 3);
+        var glassL = glassR.clone();
+        glassL.position.z = -glassR.position.z;
+
+        var glassAGeom = new THREE.BoxGeometry(11, 1, 11);
+        var glassA = new THREE.Mesh(glassAGeom, glassMat);
+        this.mesh.add(glassR);
+        this.mesh.add(glassL);
+        this.mesh.add(glassA);
+
+        var earGeom = new THREE.BoxGeometry(2, 3, 2);
+        var earL = new THREE.Mesh(earGeom, faceMat);
+        earL.position.set(0, 0, -6);
+        var earR = earL.clone();
+        earR.position.set(0, 0, 6);
+        this.mesh.add(earL);
+        this.mesh.add(earR);
+    }
+
+}
+Pilot.prototype.updateHairs = function () {
+    var hairs = this.hairsTop.children;
+
+    var l = hairs.length;
+    for (var i = 0; i < l; i++) {
+        var h = hairs[i];
+        h.scale.y = .75 + Math.cos(this.angleHairs + i / 3) * .25;
+    }
+    this.angleHairs += 0.16;
+}
+
+
+
+
+
+
+var airplane;
+
+function createPlane() {
+    airplane = new AirPlane();
+    airplane.mesh.scale.set(.25, .25, .25);
+    airplane.mesh.position.y = game.planeDefaultHeight;
+    scene.add(airplane.mesh);
+}
+
+var coinsHolder, ennemiesHolder, particlesHolder;
+
+
+class Ennemy {
+    constructor () {
+        var geom = new THREE.TetrahedronGeometry(8, 2);
+        var mat = new THREE.MeshPhongMaterial({
+            color: Colors.red,
+            shininess: 0,
+            specular: 0xffffff,
+            shading: THREE.FlatShading
+        });
+        this.mesh = new THREE.Mesh(geom, mat);
+        this.mesh.castShadow = true;
+        this.angle = 0;
+        this.dist = 0;
+    }
+}
+
+class EnnemiesHolder {
+    constructor () {
+        this.mesh = new THREE.Object3D();
+        this.ennemiesInUse = [];
+    }
+}
+
+EnnemiesHolder.prototype.spawnEnnemies = function () {
+    var nEnnemies = game.level;
+
+    for (var i = 0; i < nEnnemies; i++) {
+        var ennemy;
+        if (ennemiesPool.length) {
+            ennemy = ennemiesPool.pop();
+        } else {
+            ennemy = new Ennemy();
+        }
+
+        ennemy.angle = - (i * 0.1);
+        ennemy.distance = game.seaRadius + game.planeDefaultHeight + (-1 + Math.random() * 2) * (game.planeAmpHeight - 20);
+        ennemy.mesh.position.y = -game.seaRadius + Math.sin(ennemy.angle) * ennemy.distance;
+        ennemy.mesh.position.x = Math.cos(ennemy.angle) * ennemy.distance;
+
+        this.mesh.add(ennemy.mesh);
+        this.ennemiesInUse.push(ennemy);
+    }
+}
+
+EnnemiesHolder.prototype.rotateEnnemies = function () {
+    for (var i = 0; i < this.ennemiesInUse.length; i++) {
+        var ennemy = this.ennemiesInUse[i];
+        ennemy.angle += game.speed * deltaTime * game.ennemiesSpeed;
+
+        if (ennemy.angle > Math.PI * 2) ennemy.angle -= Math.PI * 2;
+
+        ennemy.mesh.position.y = -game.seaRadius + Math.sin(ennemy.angle) * ennemy.distance;
+        ennemy.mesh.position.x = Math.cos(ennemy.angle) * ennemy.distance;
+        ennemy.mesh.rotation.z += Math.random() * .1;
+        ennemy.mesh.rotation.y += Math.random() * .1;
+
+        //var globalEnnemyPosition =  ennemy.mesh.localToWorld(new THREE.Vector3());
+        var diffPos = airplane.mesh.position.clone().sub(ennemy.mesh.position.clone());
+        var d = diffPos.length();
+        if (d < game.ennemyDistanceTolerance) {
+            particlesHolder.spawnParticles(ennemy.mesh.position.clone(), 15, Colors.red, 3);
+
+            ennemiesPool.unshift(this.ennemiesInUse.splice(i, 1)[0]);
+            this.mesh.remove(ennemy.mesh);
+            game.planeCollisionSpeedX = 100 * diffPos.x / d;
+            game.planeCollisionSpeedY = 100 * diffPos.y / d;
+            ambientLight.intensity = 2;
+
+            removeEnergy();
+            if (soundSystem) soundSystem.playCrash();
+            i--;
+        } else if (ennemy.angle > Math.PI) {
+            ennemiesPool.unshift(this.ennemiesInUse.splice(i, 1)[0]);
+            this.mesh.remove(ennemy.mesh);
+            i--;
+        }

@@ -360,3 +360,62 @@ class Cloud {
 
 // Define a Sky Object
 class Sky {
+    constructor () {
+        // Create an empty container
+        this.mesh = new THREE.Object3D();
+        this.nClouds = 20;
+        this.clouds = [];
+        var stepAngle = Math.PI * 2 / this.nClouds;
+        for (var i = 0; i < this.nClouds; i++) {
+            var c = new Cloud();
+            this.clouds.push(c);
+            var a = stepAngle * i;
+            var h = game.seaRadius + 150 + Math.random() * 200;
+            c.mesh.position.y = Math.sin(a) * h;
+            c.mesh.position.x = Math.cos(a) * h;
+            c.mesh.position.z = -300 - Math.random() * 500;
+            c.mesh.rotation.z = a + Math.PI / 2;
+            var s = 1 + Math.random() * 2;
+            c.mesh.scale.set(s, s, s);
+            this.mesh.add(c.mesh);
+        }
+    }
+}
+Sky.prototype.moveClouds = function () {
+    for (var i = 0; i < this.nClouds; i++) {
+        var c = this.clouds[i];
+        //    c.rotate()
+    }
+    this.mesh.rotation.z += game.speed * deltaTime;
+
+}
+
+
+
+// Now we instantiate the sky and push its center a bit
+// towards the bottom of the screen
+
+var sky;
+
+function createSky() {
+    sky = new Sky();
+    sky.mesh.position.y = -600;
+    scene.add(sky.mesh);
+}
+
+
+class AirPlane {
+    constructor () {
+
+        this.mesh = new THREE.Object3D();
+        this.mesh.name = "airPlane";
+
+        // Cabin
+
+        var geomCabin = new THREE.BoxGeometry(80, 50, 50, 1, 1, 1);
+        var matCabin = new THREE.MeshPhongMaterial({ color: Colors.red, shading: THREE.FlatShading });
+
+        geomCabin.vertices[4].y -= 10;
+        geomCabin.vertices[4].z += 20;
+        geomCabin.vertices[5].y -= 10;
+        geomCabin.vertices[5].z -= 20;

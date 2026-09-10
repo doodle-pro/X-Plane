@@ -999,3 +999,338 @@ window.addEventListener('resize', () => {
     // Update camera
     camera.aspect = sizes.width / sizes.height
     camera.updateProjectionMatrix()
+
+    // Update renderer
+    renderer.setSize(sizes.width, sizes.height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1))
+})
+
+// // Add the DOM element of the renderer to the 
+// // container we created in the HTML
+//  var container = document.getElementById('world');
+// container.appendChild(renderer.domElement);
+/**
+ * Animate
+ */
+
+var mousePos = { x: 0, y: 0 };
+
+// now handle the mousemove event
+
+function handleMouseMove(event) {
+    if (soundSystem) {
+        soundSystem.init();
+        soundSystem.resume();
+    }
+    var tx = -1 + (event.clientX / sizes.width) * 2;
+    var ty = 1 - (event.clientY / sizes.height) * 2;
+    mousePos = { x: tx, y: ty };
+}
+
+function handleTouchMove(event) {
+    if (soundSystem) {
+        soundSystem.init();
+        soundSystem.resume();
+    }
+    event.preventDefault();
+    var tx = -1 + (event.touches[0].pageX /sizes.width) * 2;
+    var ty = 1 - (event.touches[0].pageY / sizes.height) * 2;
+    mousePos = { x: tx, y: ty };
+}
+
+function handleMouseUp(event) {
+    if (soundSystem) {
+        soundSystem.init();
+        soundSystem.resume();
+    }
+    if (game.status == "waitingReplay") {
+        resetGame();
+        hideReplay();
+    }
+}
+
+function handleTouchEnd(event) {
+    if (soundSystem) {
+        soundSystem.init();
+        soundSystem.resume();
+    }
+    if (game.status == "waitingReplay") {
+        resetGame();
+        hideReplay();
+    }
+}
+
+
+
+
+
+
+document.addEventListener('mousemove', handleMouseMove, false);
+
+
+
+
+// function updatePlane() {
+
+//     // let's move the airplane between -100 and 100 on the horizontal axis, 
+//     // and between 25 and 175 on the vertical axis,
+//     // depending on the mouse position which ranges between -1 and 1 on both axes;
+//     // to achieve that we use a normalize function (see below)
+
+//     // var targetX = normalize(mousePos.x, -1, 1, -100, 100);
+//     // var targetY = normalize(mousePos.y, -1, 1, 25, 175);
+
+//     // // update the airplane's position
+//     // airplane.mesh.position.y = targetY;
+//     // airplane.mesh.position.x = targetX;
+//     // airplane.propeller.rotation.x += 0.3;
+
+
+//     var targetY = normalize(mousePos.y, -.75, .75, 25, 175);
+//     var targetX = normalize(mousePos.x, -.75, .75, -100, 100);
+
+//     // Move the plane at each frame by adding a fraction of the remaining distance
+//     airplane.mesh.position.y += (targetY - airplane.mesh.position.y) * 0.1;
+
+//     // Rotate the plane proportionally to the remaining distance
+//     airplane.mesh.rotation.z = (targetY - airplane.mesh.position.y) * 0.0128;
+//     airplane.mesh.rotation.x = (airplane.mesh.position.y - targetY) * 0.0064;
+
+//     airplane.propeller.rotation.x += 0.3;
+// }
+
+function updateCameraFov() {
+    camera.fov = normalize(mousePos.x, -1, 1, 40, 80);
+    camera.updateProjectionMatrix();
+}
+
+function updateDistance() {
+    game.distance += game.speed * deltaTime * game.ratioSpeedDistance;
+    fieldDistance.innerHTML = Math.floor(game.distance);
+    var d = 502 * (1 - (game.distance % game.distanceForLevelUpdate) / game.distanceForLevelUpdate);
+    levelCircle.setAttribute("stroke-dashoffset", d);
+
+}
+
+var blinkEnergy = false;
+
+function updateEnergy() {
+    game.energy -= game.speed * deltaTime * game.ratioSpeedEnergy;
+    game.energy = Math.max(0, game.energy);
+    energyBar.style.right = (100 - game.energy) + "%";
+    energyBar.style.backgroundColor = (game.energy < 50) ? "#f25346" : "#68c3c0";
+
+    if (game.energy < 30) {
+        energyBar.style.animationName = "blinking";
+    } else {
+        energyBar.style.animationName = "none";
+    }
+
+    if (game.energy < 1) {
+        game.status = "gameover";
+    }
+}
+
+function addEnergy() {
+    game.energy += game.coinValue;
+    game.energy = Math.min(game.energy, 100);
+}
+
+function removeEnergy() {
+    game.energy -= game.ennemyValue;
+    game.energy = Math.max(0, game.energy);
+}
+
+
+
+function updatePlane() {
+
+    game.planeSpeed = normalize(mousePos.x, -.5, .5, game.planeMinSpeed, game.planeMaxSpeed);
+    // var targetY = normalize(mousePos.y, -.75, .75, game.planeDefaultHeight - game.planeAmpHeight, game.planeDefaultHeight + game.planeAmpHeight);
+    // var targetX = normalize(mousePos.x, -1, 1, -game.planeAmpWidth * .7, -game.planeAmpWidth);
+    var targetY = normalize(mousePos.y, -.75, .75, 25, 175);
+    var targetX = normalize(mousePos.x, -.75, .75, -1, 1);
+
+    game.planeCollisionDisplacementX += game.planeCollisionSpeedX;
+    targetX += game.planeCollisionDisplacementX;
+
+
+    game.planeCollisionDisplacementY += game.planeCollisionSpeedY;
+    targetY += game.planeCollisionDisplacementY;
+
+    airplane.mesh.position.y += (targetY - airplane.mesh.position.y) * deltaTime * game.planeMoveSensivity;
+    airplane.mesh.position.x += (targetX - airplane.mesh.position.x) * deltaTime * game.planeMoveSensivity;
+
+    airplane.mesh.rotation.z = (targetY - airplane.mesh.position.y) * deltaTime * game.planeRotXSensivity;
+    airplane.mesh.rotation.x = (airplane.mesh.position.y - targetY) * deltaTime * game.planeRotZSensivity;
+    var targetCameraZ = normalize(game.planeSpeed, game.planeMinSpeed, game.planeMaxSpeed, game.cameraNearPos, game.cameraFarPos);
+    camera.fov = normalize(mousePos.x, -1, 1, 40, 80);
+    camera.updateProjectionMatrix()
+    camera.position.y += (airplane.mesh.position.y - camera.position.y) * deltaTime * game.cameraSensivity;
+
+    game.planeCollisionSpeedX += (0 - game.planeCollisionSpeedX) * deltaTime * 0.03;
+    game.planeCollisionDisplacementX += (0 - game.planeCollisionDisplacementX) * deltaTime * 0.01;
+    game.planeCollisionSpeedY += (0 - game.planeCollisionSpeedY) * deltaTime * 0.03;
+    game.planeCollisionDisplacementY += (0 - game.planeCollisionDisplacementY) * deltaTime * 0.01;
+
+    airplane.pilot.updateHairs();
+}
+
+function showReplay() {
+    replayMessage.style.display = "block";
+}
+
+function hideReplay() {
+    replayMessage.style.display = "none";
+}
+function normalize(v, vmin, vmax, tmin, tmax) {
+    var nv = Math.max(Math.min(v, vmax), vmin);
+    var dv = vmax - vmin;
+    var pc = (nv - vmin) / dv;
+    var dt = tmax - tmin;
+    var tv = tmin + (pc * dt);
+    return tv;
+
+}
+
+
+var fieldDistance, energyBar, replayMessage, fieldLevel, levelCircle;
+
+
+
+const clock = new THREE.Clock()
+
+var oldTime = 0
+
+const tick = () => {
+
+    const elapsedTime = clock.getElapsedTime()
+
+    newTime = new Date().getTime();
+    deltaTime = newTime - oldTime;
+    oldTime = newTime;
+
+    // newTime = elapsedTime
+    // deltaTime = newTime - oldTime
+    // oldTime = newTime
+
+    if (game.status == "playing") {
+
+        // Add energy coins every 100m;
+        if (Math.floor(game.distance) % game.distanceForCoinsSpawn == 0 && Math.floor(game.distance) > game.coinLastSpawn) {
+            game.coinLastSpawn = Math.floor(game.distance);
+            coinsHolder.spawnCoins();
+        }
+
+        if (Math.floor(game.distance) % game.distanceForSpeedUpdate == 0 && Math.floor(game.distance) > game.speedLastUpdate) {
+            game.speedLastUpdate = Math.floor(game.distance);
+            game.targetBaseSpeed += game.incrementSpeedByTime * deltaTime;
+        }
+
+
+        if (Math.floor(game.distance) % game.distanceForEnnemiesSpawn == 0 && Math.floor(game.distance) > game.ennemyLastSpawn) {
+            game.ennemyLastSpawn = Math.floor(game.distance);
+            ennemiesHolder.spawnEnnemies();
+        }
+
+        if (Math.floor(game.distance) % game.distanceForLevelUpdate == 0 && Math.floor(game.distance) > game.levelLastUpdate) {
+            game.levelLastUpdate = Math.floor(game.distance);
+            game.level++;
+            fieldLevel.innerHTML = Math.floor(game.level);
+
+            game.targetBaseSpeed = game.initSpeed + game.incrementSpeedByLevel * game.level
+        }
+
+
+        updatePlane();
+        updateDistance();
+        updateEnergy();
+        
+        game.baseSpeed += (game.targetBaseSpeed - game.baseSpeed) * deltaTime * 0.02;
+        game.speed = game.baseSpeed * game.planeSpeed;
+
+        if (soundSystem) {
+            var speedRatio = (game.planeSpeed - game.planeMinSpeed) / (game.planeMaxSpeed - game.planeMinSpeed);
+            soundSystem.setEngineSpeed(speedRatio);
+        }
+
+    } else {
+        if (soundSystem) {
+            soundSystem.setEngineSpeed(0);
+        }
+        if (game.status == "gameover") {
+            game.speed *= .99;
+            airplane.mesh.rotation.z += (-Math.PI / 2 - airplane.mesh.rotation.z) * .0002 * deltaTime;
+            airplane.mesh.rotation.x += 0.0003 * deltaTime;
+            game.planeFallSpeed *= 1.05;
+            airplane.mesh.position.y -= game.planeFallSpeed * deltaTime;
+
+            if (airplane.mesh.position.y < -200) {
+                showReplay();
+                game.status = "waitingReplay";
+
+            }
+        }
+    }
+
+
+    airplane.propeller.rotation.x += .2 + game.planeSpeed * deltaTime * .005;
+    sea.mesh.rotation.z += game.speed * deltaTime;//*game.seaRotationSpeed;
+
+    if (sea.mesh.rotation.z > 2 * Math.PI) sea.mesh.rotation.z -= 2 * Math.PI;
+
+    ambientLight.intensity += (.5 - ambientLight.intensity) * deltaTime * 0.005;
+
+    coinsHolder.rotateCoins();
+    ennemiesHolder.rotateEnnemies();
+
+    sky.moveClouds();
+    sea.moveWaves();
+
+
+
+
+
+
+    // Update Orbital Controls
+    // controls.update()
+
+    // Render
+    renderer.render(scene, camera)
+
+    // Call tick again on the next frame
+    window.requestAnimationFrame(tick)
+}
+
+
+
+function init(event) {
+
+    // UI
+
+    fieldDistance = document.getElementById("distValue");
+    energyBar = document.getElementById("energyBar");
+    replayMessage = document.getElementById("replayMessage");
+    fieldLevel = document.getElementById("levelValue");
+    levelCircle = document.getElementById("levelCircleStroke");
+
+    resetGame();
+    soundSystem = new SoundSystem();
+    // createScene();
+
+    // createLights();
+    createPlane();
+    createSea();
+    createSky();
+    createCoins();
+    createEnnemies();
+    createParticles();
+
+    document.addEventListener('mousemove', handleMouseMove, false);
+    document.addEventListener('touchmove', handleTouchMove, false);
+    document.addEventListener('mouseup', handleMouseUp, false);
+    document.addEventListener('touchend', handleTouchEnd, false);
+
+    tick();
+}
+window.addEventListener('load', init, false);

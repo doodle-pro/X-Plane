@@ -849,3 +849,153 @@ CoinsHolder.prototype.spawnCoins = function () {
         var coin;
         if (this.coinsPool.length) {
             coin = this.coinsPool.pop();
+        } else {
+            coin = new Coin();
+        }
+        this.mesh.add(coin.mesh);
+        this.coinsInUse.push(coin);
+        coin.angle = - (i * 0.02);
+        coin.distance = d + Math.cos(i * .5) * amplitude;
+        coin.mesh.position.y = -game.seaRadius + Math.sin(coin.angle) * coin.distance;
+        coin.mesh.position.x = Math.cos(coin.angle) * coin.distance;
+    }
+}
+
+CoinsHolder.prototype.rotateCoins = function () {
+    for (var i = 0; i < this.coinsInUse.length; i++) {
+        var coin = this.coinsInUse[i];
+        if (coin.exploding) continue;
+        coin.angle += game.speed * deltaTime * game.coinsSpeed;
+        if (coin.angle > Math.PI * 2) coin.angle -= Math.PI * 2;
+        coin.mesh.position.y = -game.seaRadius + Math.sin(coin.angle) * coin.distance;
+        coin.mesh.position.x = Math.cos(coin.angle) * coin.distance;
+        coin.mesh.rotation.z += Math.random() * .1;
+        coin.mesh.rotation.y += Math.random() * .1;
+
+        //var globalCoinPosition =  coin.mesh.localToWorld(new THREE.Vector3());
+        var diffPos = airplane.mesh.position.clone().sub(coin.mesh.position.clone());
+        var d = diffPos.length();
+        if (d < game.coinDistanceTolerance) {
+            this.coinsPool.unshift(this.coinsInUse.splice(i, 1)[0]);
+            this.mesh.remove(coin.mesh);
+            particlesHolder.spawnParticles(coin.mesh.position.clone(), 5, 0x009999, .8);
+            addEnergy();
+            if (soundSystem) soundSystem.playCoin();
+            i--;
+        } else if (coin.angle > Math.PI) {
+            this.coinsPool.unshift(this.coinsInUse.splice(i, 1)[0]);
+            this.mesh.remove(coin.mesh);
+            i--;
+        }
+    }
+}
+
+
+function createCoins() {
+
+    coinsHolder = new CoinsHolder(20);
+    scene.add(coinsHolder.mesh)
+}
+
+function createEnnemies() {
+    for (var i = 0; i < 10; i++) {
+        var ennemy = new Ennemy();
+        ennemiesPool.push(ennemy);
+    }
+    ennemiesHolder = new EnnemiesHolder();
+    //ennemiesHolder.mesh.position.y = -game.seaRadius;
+    scene.add(ennemiesHolder.mesh)
+}
+
+function createParticles() {
+    for (var i = 0; i < 10; i++) {
+        var particle = new Particle();
+        particlesPool.push(particle);
+    }
+    particlesHolder = new ParticlesHolder();
+    //ennemiesHolder.mesh.position.y = -game.seaRadius;
+    scene.add(particlesHolder.mesh)
+}
+
+
+
+
+
+
+//////////////////////////* Lights//////////////////////////////
+
+const hemisphereLight = new THREE.HemisphereLight(0xaaaaaa, 0x000000, 0.9)
+
+const ambientLight = new THREE.AmbientLight(0xdc8874, .5);
+
+const shadowLight = new THREE.DirectionalLight(0xffffff, 0.9);
+
+shadowLight.position.set(150, 350, 350)
+
+shadowLight.castShadow = true
+
+shadowLight.shadow.camera.left = -400;
+shadowLight.shadow.camera.right = 400;
+shadowLight.shadow.camera.top = 400;
+shadowLight.shadow.camera.bottom = -400;
+shadowLight.shadow.camera.near = 1;
+shadowLight.shadow.camera.far = 1000;
+
+shadowLight.shadow.mapSize.width = 2048;
+shadowLight.shadow.mapSize.height = 2048;
+
+scene.add(hemisphereLight);
+scene.add(shadowLight)
+scene.add(ambientLight);
+
+
+/**
+ * Sizes
+ */
+const sizes = {
+    width: window.innerWidth,
+    height: window.innerHeight
+}
+
+
+/**
+ * Camera
+ */
+// Base camera
+const camera = new THREE.PerspectiveCamera(60, sizes.width / sizes.height, 1, 10000)
+camera.position.x = 0
+camera.position.y = 100
+camera.position.z = 200
+scene.add(camera)
+
+
+
+
+
+
+// Controls
+// const controls = new OrbitControls(camera, canvas)
+// controls.enableDamping = true
+
+/**
+ * Renderer
+ */
+const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    alpha: true,
+    antialias: true
+})
+renderer.setSize(sizes.width, sizes.height)
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1))
+renderer.shadowMap.enabled = true;
+
+
+
+window.addEventListener('resize', () => {
+    // Update sizes
+    sizes.width = window.innerWidth
+    sizes.height = window.innerHeight
+
+    // Update camera
+    camera.aspect = sizes.width / sizes.height
+    camera.updateProjectionMatrix()
